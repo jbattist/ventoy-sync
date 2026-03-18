@@ -152,12 +152,12 @@ isos:
     filename_template: "tails-amd64-{version}.iso"
 
   kali_linux:
-    name: "Kali Linux (Live)"
+    name: "Kali Linux (Installer)"
     method: "regex"
     url: "https://cdimage.kali.org/current/"
-    regex: 'kali-linux-([\d.]+)-live-amd64\.iso'
-    download_url_template: "https://cdimage.kali.org/kali-{version}/kali-linux-{version}-live-amd64.iso"
-    filename_template: "kali-linux-{version}-live-amd64.iso"
+    regex: 'kali-linux-([\d.]+)-installer-amd64\.iso'
+    download_url_template: "https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-amd64.iso"
+    filename_template: "kali-linux-{version}-installer-amd64.iso"
 
   # --- Diagnostic Tools ---
 
