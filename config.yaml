@@ -1,0 +1,189 @@
+ventoy_path: "/run/media/joe/VENTOY"
+
+isos:
+  archlinux:
+    name: "Arch Linux"
+    method: "regex"
+    url: "https://archlinux.org/download/"
+    regex: 'archlinux-(\d{4}\.\d{2}\.\d{2})-x86_64\.iso'
+    download_url_template: "https://mirror.rackspace.com/archlinux/iso/{version}/archlinux-{version}-x86_64.iso"
+    filename_template: "archlinux-{version}-x86_64.iso"
+
+  endeavouros:
+    name: "EndeavourOS"
+    method: "regex"
+    url: "https://endeavouros.com/latest-release/"
+    regex: 'EndeavourOS_([\w.-]+)\.iso'
+    download_url_template: "https://mirror.alpix.eu/endeavouros/iso/EndeavourOS_{version}.iso"
+    filename_template: "EndeavourOS_{version}.iso"
+
+  cachyos:
+    name: "CachyOS"
+    method: "regex"
+    url: "https://mirror.cachyos.org/ISO/desktop/"
+    regex: 'href="(\d{6})/"'
+    regex_last: true  # Directory listing is chronological; pick the latest
+    download_url_template: "https://mirror.cachyos.org/ISO/desktop/{version}/cachyos-desktop-linux-{version}.iso"
+    filename_template: "cachyos-desktop-linux-{version}.iso"
+
+  ubuntu_daily:
+    name: "Ubuntu Desktop (Daily)"
+    method: "headers"
+    download_url: "https://cdimage.ubuntu.com/daily-live/current/resolute-desktop-amd64.iso"
+
+  proxmox_ve:
+    name: "Proxmox VE"
+    method: "regex"
+    url: "https://www.proxmox.com/en/downloads/proxmox-virtual-environment/iso"
+    regex: 'proxmox-ve_([\d.-]+)\.iso'
+    download_url_template: "https://enterprise.proxmox.com/iso/proxmox-ve_{version}.iso"
+    filename_template: "proxmox-ve_{version}.iso"
+
+  proxmox_backup:
+    name: "Proxmox Backup Server"
+    method: "regex"
+    url: "https://www.proxmox.com/en/downloads/proxmox-backup-server/iso"
+    regex: 'proxmox-backup-server_([\d.-]+)\.iso'
+    download_url_template: "https://enterprise.proxmox.com/iso/proxmox-backup-server_{version}.iso"
+    filename_template: "proxmox-backup-server_{version}.iso"
+
+  linuxmint:
+    name: "Linux Mint (Cinnamon)"
+    method: "regex"
+    url: "https://www.linuxmint.com/download.php"
+    regex: 'Linux Mint ([\d.]+)'
+    download_url_template: "https://mirrors.kernel.org/linuxmint/stable/{version}/linuxmint-{version}-cinnamon-64bit.iso"
+    filename_template: "linuxmint-{version}-cinnamon-64bit.iso"
+
+  zorinos:
+    name: "Zorin OS"
+    method: "regex"
+    url: "https://zorin.com/os/download/18/core/"
+    regex: 'zorinos-isos/(?P<major>\d+)/Zorin-OS-\d+-Core-64-bit(?P<rev>-r\d+)?\.iso'
+    download_url_template: "https://mirrors.edge.kernel.org/zorinos-isos/{major}/Zorin-OS-{major}-Core-64-bit{rev}.iso"
+    filename_template: "Zorin-OS-{major}-Core-64-bit{rev}.iso"
+
+  truenas_scale:
+    name: "TrueNAS SCALE"
+    method: "regex"
+    url: "https://www.truenas.com/download-truenas-scale/"
+    regex: 'TrueNAS-SCALE-([\d.]+)\.iso'
+    download_url_template: "https://download.truenas.com/TrueNAS-SCALE-Fangtooth/{version}/TrueNAS-SCALE-{version}.iso"
+    filename_template: "TrueNAS-SCALE-{version}.iso"
+
+  hirens_bootcd:
+    name: "Hiren's BootCD PE"
+    method: "headers"
+    download_url: "https://www.hirensbootcd.org/files/HBCD_PE_x64.iso"
+
+  clonezilla:
+    name: "Clonezilla"
+    method: "regex"
+    url: "https://clonezilla.org/downloads.php"
+    regex: '<b>stable</b>\s*-\s*<font[^>]*>([\d.-]+)</font>'
+    download_url_template: "https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/{version}/clonezilla-live-{version}-amd64.iso/download"
+    filename_template: "clonezilla-live-{version}-amd64.iso"
+
+  rescuezilla:
+    name: "Rescuezilla"
+    method: "regex"
+    url: "https://github.com/rescuezilla/rescuezilla/releases/latest"
+    regex: 'rescuezilla-([\d.]+)-64bit\.\w+\.iso'
+    download_url_template: "https://github.com/rescuezilla/rescuezilla/releases/download/{version}/rescuezilla-{version}-64bit.noble.iso"
+    filename_template: "rescuezilla-{version}-64bit.noble.iso"
+
+  gparted_live:
+    name: "GParted Live"
+    method: "regex"
+    url: "https://gparted.org/download.php"
+    regex: 'gparted-live-([\d.-]+)-amd64\.iso'
+    download_url_template: "https://sourceforge.net/projects/gparted/files/gparted-live-stable/{version}/gparted-live-{version}-amd64.iso/download"
+    filename_template: "gparted-live-{version}-amd64.iso"
+
+  systemrescue:
+    name: "SystemRescue"
+    method: "regex"
+    url: "https://www.system-rescue.org/Download/"
+    regex: 'systemrescue-([\d.]+)-amd64\.iso'
+    download_url_template: "https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/{version}/systemrescue-{version}-amd64.iso/download"
+    filename_template: "systemrescue-{version}-amd64.iso"
+
+  windows11:
+    name: "Windows 11"
+    method: "headers"
+    # Microsoft generates download URLs dynamically; they expire after 24 hours.
+    # Paste a fresh direct download URL here after obtaining one from:
+    #   https://www.microsoft.com/software-download/windows11
+    download_url: ""
+    enabled: false  # Enable after setting a valid direct download URL
+
+  # --- Distros ---
+
+  fedora_workstation:
+    name: "Fedora Workstation"
+    method: "regex"
+    url: "https://fedoraproject.org/workstation/download"
+    regex: 'Fedora-Workstation-Live-(?P<major>\d+)-(?P<build>[\d.]+)\.x86_64\.iso'
+    download_url_template: "https://download.fedoraproject.org/pub/fedora/linux/releases/{major}/Workstation/x86_64/iso/Fedora-Workstation-Live-{major}-{build}.x86_64.iso"
+    filename_template: "Fedora-Workstation-Live-{major}-{build}.x86_64.iso"
+
+  debian_live:
+    name: "Debian Live (GNOME)"
+    method: "regex"
+    url: "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/"
+    regex: 'debian-live-([\d.]+)-amd64-gnome\.iso'
+    download_url_template: "https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/debian-live-{version}-amd64-gnome.iso"
+    filename_template: "debian-live-{version}-amd64-gnome.iso"
+
+  nixos:
+    name: "NixOS (Minimal)"
+    method: "regex"
+    url: "https://nixos.org/download/"
+    regex: 'channels\.nixos\.org/nixos-([\d.]+)/latest-nixos-minimal-x86_64-linux\.iso'
+    download_url_template: "https://channels.nixos.org/nixos-{version}/latest-nixos-minimal-x86_64-linux.iso"
+    filename_template: "nixos-minimal-{version}-x86_64-linux.iso"
+
+  tails:
+    name: "Tails"
+    method: "regex"
+    url: "https://tails.net/install/download/"
+    regex: 'tails-amd64-([\d.]+)\.iso'
+    download_url_template: "https://download.tails.net/tails/stable/tails-amd64-{version}/tails-amd64-{version}.iso"
+    filename_template: "tails-amd64-{version}.iso"
+
+  kali_linux:
+    name: "Kali Linux (Live)"
+    method: "regex"
+    url: "https://cdimage.kali.org/current/"
+    regex: 'kali-linux-([\d.]+)-live-amd64\.iso'
+    download_url_template: "https://cdimage.kali.org/kali-{version}/kali-linux-{version}-live-amd64.iso"
+    filename_template: "kali-linux-{version}-live-amd64.iso"
+
+  # --- Diagnostic Tools ---
+
+  memtest86plus:
+    name: "Memtest86+"
+    method: "regex"
+    url: "https://memtest.org/"
+    regex: '/download/v([\d.]+)/mt86plus_[\d.]+_x86_64\.iso\.zip'
+    download_url_template: "https://memtest.org/download/v{version}/mt86plus_{version}_x86_64.iso.zip"
+    filename_template: "mt86plus_{version}_x86_64.iso"
+    unzip: true  # Download is a .zip; extract the .iso after download
+
+  shredos:
+    name: "ShredOS"
+    method: "regex"
+    url: "https://github.com/PartialVolume/shredos.x86_64/releases/latest"
+    regex: '/download/(?P<tag>[^/]+)/(?P<fname>shredos-[\w._-]+x86-64_v[\d.]+_\d+)\.iso"'
+    download_url_template: "https://github.com/PartialVolume/shredos.x86_64/releases/download/{tag}/{fname}.iso"
+    filename_template: "{fname}.iso"
+
+  dban:
+    name: "DBAN"
+    method: "regex"
+    url: "https://sourceforge.net/projects/dban/files/dban/"
+    regex: 'dban-([\d.]+)_i586\.iso'
+    download_url_template: "https://sourceforge.net/projects/dban/files/dban/dban-{version}/dban-{version}_i586.iso/download"
+    filename_template: "dban-{version}_i586.iso"
+    user_agent: "Mozilla/5.0"
+    # NOTE: DBAN is discontinued (last release 2015, version 2.3.0).

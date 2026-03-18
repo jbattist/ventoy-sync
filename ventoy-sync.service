@@ -1,0 +1,14 @@
+[Unit]
+Description=Ventoy ISO Sync Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=__SCRIPT_DIR__/ventoy-sync.py
+WorkingDirectory=__SCRIPT_DIR__
+Environment=PYTHONUNBUFFERED=1
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=default.target
