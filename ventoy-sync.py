@@ -86,7 +86,10 @@ def load_state(state_path: Path) -> dict:
     """Load state.json from the Ventoy drive (or return empty dict)."""
     if state_path.exists():
         with open(state_path) as f:
-            return json.load(f)
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
     return {}
 
 
@@ -230,23 +233,33 @@ def _fmt_size(b: float) -> str:
 
 
 def download_iso(url: str, dest: Path, user_agent: str = USER_AGENT) -> None:
-    """Download an ISO using curl with resume support."""
+    """Download an ISO using curl, with resume support where the server allows it."""
     # curl writes -w output to stdout; progress bar goes to stderr (tty).
-    cmd = [
-        "curl",
-        "-L",           # follow redirects
-        "-C", "-",      # resume if partial file exists
-        "-o", str(dest),
-        "--progress-bar",
-        "--fail",       # fail on HTTP errors
-        "--retry", "3",
-        "--retry-delay", "5",
-        "-A", user_agent,
-        "-w", "%{speed_download} %{size_download} %{time_total}",
-        url,
-    ]
+    def _build_cmd(resume: bool) -> list[str]:
+        cmd = ["curl", "-L"]
+        if resume:
+            cmd += ["-C", "-"]      # resume if partial file exists
+        cmd += [
+            "-o", str(dest),
+            "--progress-bar",
+            "--fail",               # fail on HTTP errors
+            "--retry", "3",
+            "--retry-delay", "5",
+            "-A", user_agent,
+            "-w", "%{speed_download} %{size_download} %{time_total}",
+            url,
+        ]
+        return cmd
+
     print(f"  Downloading to {dest.name} ...")
-    result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
+    result = subprocess.run(_build_cmd(resume=True), stdout=subprocess.PIPE, text=True)
+
+    # curl exit code 33 = byte-range request rejected by server (no resume support).
+    # Delete any partial file and retry as a fresh download.
+    if result.returncode == 33:
+        if dest.exists():
+            dest.unlink()
+        result = subprocess.run(_build_cmd(resume=False), stdout=subprocess.PIPE, text=True)
 
     if result.returncode != 0:
         raise RuntimeError(
@@ -304,12 +317,39 @@ def iso_prefix(entry: dict, key: str) -> str:
     return key.replace("_", "-") + "-"
 
 
+def friendly_filename(entry: dict, version: str, original_filename: str) -> str:
+    """
+    Build a friendly filename from the entry's name and version.
+
+    Uses the pattern: "{name} - {version}.{ext}"
+    For headers-method entries (no version): "{name}.{ext}"
+
+    Returns the original filename if rename is not enabled.
+    """
+    if not entry.get("rename", False):
+        return original_filename
+
+    name = entry.get("name", "")
+    if not name:
+        return original_filename
+
+    # Preserve the original file extension
+    ext = Path(original_filename).suffix  # e.g. ".iso" or ".img"
+    if not ext:
+        ext = ".iso"
+
+    if version:
+        return f"{name} - {version}{ext}"
+    else:
+        return f"{name}{ext}"
+
+
 # ---------------------------------------------------------------------------
 # Core sync loop
 # ---------------------------------------------------------------------------
 
 def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
-             dry_run: bool) -> SyncResult:
+             dry_run: bool, state_path: Path | None = None) -> SyncResult:
     """Process a single ISO entry."""
     result = SyncResult(key, entry.get("name", key))
 
@@ -385,18 +425,37 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
             if not dest.exists() or dest.stat().st_size == 0:
                 raise RuntimeError("Download produced empty or missing file")
 
-            # Cleanup old versions
+            # Rename to friendly name if enabled
+            final_filename = friendly_filename(entry, version, filename)
+            if final_filename != filename:
+                final_dest = ventoy_path / final_filename
+                dest.rename(final_dest)
+                print(f"  Renamed to {final_filename}")
+
+            # Cleanup old versions (by upstream prefix)
             prefix = iso_prefix(entry, key)
-            deleted = cleanup_old(ventoy_path, filename, prefix)
+            deleted = cleanup_old(ventoy_path, final_filename, prefix)
+
+            # Also cleanup old friendly-named files if renaming is active
+            if entry.get("rename", False):
+                friendly_prefix = entry.get("name", "")
+                if friendly_prefix:
+                    deleted += cleanup_old(
+                        ventoy_path, final_filename, friendly_prefix
+                    )
+
             if deleted:
                 result.message = f"Removed old: {', '.join(deleted)}"
 
             # Update state
+            result.filename = final_filename
             state[key] = {
                 "version": version,
-                "filename": filename,
+                "filename": final_filename,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
+            if state_path:
+                save_state(state_path, state)
 
             result.status = "updated"
             if not result.message:
@@ -430,9 +489,16 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
             if not dest.exists() or dest.stat().st_size == 0:
                 raise RuntimeError("Download produced empty or missing file")
 
+            # Rename to friendly name if enabled (no version for headers method)
+            final_filename = friendly_filename(entry, "", filename)
+            if final_filename != filename:
+                final_dest = ventoy_path / final_filename
+                dest.rename(final_dest)
+                print(f"  Renamed to {final_filename}")
+
             # For headers method, cleanup by exact previous filename
             old_fn = state_entry.get("filename", "")
-            if old_fn and old_fn != filename:
+            if old_fn and old_fn != final_filename:
                 old_path = ventoy_path / old_fn
                 if old_path.exists():
                     old_path.unlink()
@@ -440,10 +506,13 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
 
             state[key] = {
                 **new_headers,
-                "filename": filename,
+                "filename": final_filename,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
+            if state_path:
+                save_state(state_path, state)
 
+            result.filename = final_filename
             result.status = "updated"
             if not result.message:
                 result.message = "Downloaded (headers changed)"
@@ -460,7 +529,8 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
 
 
 def sync_all(config: dict, state: dict, ventoy_path: Path,
-             dry_run: bool, only_key: str | None = None) -> list[SyncResult]:
+             dry_run: bool, only_key: str | None = None,
+             state_path: Path | None = None) -> list[SyncResult]:
     """Run sync for all (or one) configured ISOs."""
     results = []
     isos = config["isos"]
@@ -477,7 +547,7 @@ def sync_all(config: dict, state: dict, ventoy_path: Path,
     for key, entry in isos.items():
         label = entry.get("name", key)
         print(f"\n{BOLD}[{label}]{RESET}")
-        result = sync_one(key, entry, state, ventoy_path, dry_run)
+        result = sync_one(key, entry, state, ventoy_path, dry_run, state_path)
 
         # Print status line
         if result.status == "updated":
@@ -605,7 +675,8 @@ def main():
     print(f"  Time:  {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}")
 
     start = time.monotonic()
-    results = sync_all(config, state, ventoy_path, args.dry_run, args.check)
+    results = sync_all(config, state, ventoy_path, args.dry_run, args.check,
+                       state_path=state_path)
     elapsed = time.monotonic() - start
 
     # Save state (even on dry-run we don't modify state, but this is safe)

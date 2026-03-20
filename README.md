@@ -6,6 +6,7 @@ Automated ISO updater for [Ventoy](https://www.ventoy.net/) USB drives. Checks u
 
 - **Regex scraping** for version detection on upstream download pages
 - **HTTP HEAD** checking for ISOs with static URLs (e.g. daily builds)
+- **Friendly renaming** of ISOs using the `name` field (e.g. `Arch Linux - 2026.03.01.iso`)
 - **Resume support** via `curl -C -` for interrupted downloads
 - **Auto-cleanup** of old ISO versions after successful download
 - **Named capture groups** for complex version strings (e.g. Fedora `{major}-{build}`)
@@ -91,6 +92,7 @@ archlinux:
 ```
 
 Optional fields:
+- `rename: true` -- rename the downloaded file to `{name} - {version}.iso` (see [Friendly renaming](#friendly-renaming))
 - `regex_last: true` -- use last match instead of first (for chronological listings)
 - `unzip: true` -- download is a zip; extract the ISO after download
 - `user_agent: "..."` -- override the default User-Agent for this entry
@@ -120,6 +122,27 @@ fedora:
 
 `{version}` (always group 1) and any `(?P<name>...)` groups are available in templates.
 
+### Friendly renaming
+
+Set `rename: true` on an entry to rename the downloaded ISO using the `name` field
+and version string. The pattern is `{name} - {version}.{ext}`:
+
+```yaml
+archlinux:
+  name: "Arch Linux"
+  rename: true
+  method: "regex"
+  # ... other fields ...
+```
+
+This renames `archlinux-2026.03.01-x86_64.iso` to `Arch Linux - 2026.03.01.iso`.
+
+For headers-method entries (which have no version string), the file is renamed to
+`{name}.{ext}`, e.g. `Ubuntu Desktop (Daily).iso`.
+
+When renaming is active, old files with both the upstream name pattern and the
+friendly name pattern are cleaned up automatically.
+
 ## File layout
 
 ```
@@ -137,7 +160,8 @@ On the Ventoy drive:
 /run/media/user/VENTOY/
   state.json              # Tracks current versions
   summary.md              # Last sync report
-  archlinux-2026.03.01-x86_64.iso
+  Arch Linux - 2026.03.01.iso
+  Ubuntu Desktop (Daily).iso
   ...
 ```
 
