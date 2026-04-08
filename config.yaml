@@ -110,8 +110,9 @@ isos:
     method: "regex"
     url: "https://gparted.org/download.php"
     regex: 'gparted-live-([\d.-]+)-amd64\.iso'
-    download_url_template: "https://sourceforge.net/projects/gparted/files/gparted-live-stable/{version}/gparted-live-{version}-amd64.iso/download"
+    download_url_template: "https://master.dl.sourceforge.net/project/gparted/gparted-live-stable/{version}/gparted-live-{version}-amd64.iso?viasf=1"
     filename_template: "gparted-live-{version}-amd64.iso"
+    user_agent: "Wget/1.21.3"
 
   systemrescue:
     name: "SystemRescue"
@@ -119,7 +120,7 @@ isos:
     method: "regex"
     url: "https://www.system-rescue.org/Download/"
     regex: 'systemrescue-([\d.]+)-amd64\.iso'
-    download_url_template: "https://sourceforge.net/projects/systemrescuecd/files/sysresccd-x86/{version}/systemrescue-{version}-amd64.iso/download"
+    download_url_template: "https://fastly-cdn.system-rescue.org/releases/{version}/systemrescue-{version}-amd64.iso"
     filename_template: "systemrescue-{version}-amd64.iso"
 
   windows11:
@@ -179,6 +180,15 @@ isos:
     download_url_template: "https://cdimage.kali.org/kali-{version}/kali-linux-{version}-installer-amd64.iso"
     filename_template: "kali-linux-{version}-installer-amd64.iso"
 
+  kde_neon:
+    name: "KDE Neon (User Edition)"
+    rename: true
+    method: "regex"
+    url: "https://neon.kde.org/download"
+    regex: 'neon-user-(\d{8}-\d{4})\.iso'
+    download_url_template: "https://files.kde.org/neon/images/user/{version}/neon-user-{version}.iso"
+    filename_template: "neon-user-{version}.iso"
+
   omarchy:
     name: "Omarchy"
     method: "regex"
@@ -186,6 +196,16 @@ isos:
     regex: 'iso\.omarchy\.org/omarchy-([\d.]+-\d+)\.iso'
     download_url_template: "https://iso.omarchy.org/omarchy-{version}.iso"
     filename_template: "omarchy-{version}.iso"
+
+  garuda_mokka:
+    name: "Garuda Linux (Mokka)"
+    rename: true
+    method: "regex"
+    url: "https://iso.builds.garudalinux.org/iso/garuda/mokka/"
+    regex: 'href="(\d{6})/"'
+    regex_last: true
+    download_url_template: "https://iso.builds.garudalinux.org/iso/garuda/mokka/{version}/garuda-mokka-linux-zen-{version}.iso"
+    filename_template: "garuda-mokka-linux-zen-{version}.iso"
 
   # --- Diagnostic Tools ---
 

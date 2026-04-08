@@ -6,9 +6,10 @@ Checks upstream sources for new ISO versions and downloads updates
 using curl with resume support. Generates a summary report after each run.
 
 Usage:
-    python ventoy_sync.py              # Full sync
-    python ventoy_sync.py --dry-run    # Check only, no downloads
-    python ventoy_sync.py --check KEY  # Check a single ISO entry
+    python ventoy_sync.py                        # Full sync
+    python ventoy_sync.py --dry-run              # Check only, no downloads
+    python ventoy_sync.py --check KEY            # Check a single ISO entry
+    python ventoy_sync.py --backup /mnt/iso      # Sync then copy new ISOs to backup path
 """
 
 import os
@@ -235,10 +236,12 @@ def _fmt_size(b: float) -> str:
 def download_iso(url: str, dest: Path, user_agent: str = USER_AGENT) -> None:
     """Download an ISO using curl, with resume support where the server allows it."""
     # curl writes -w output to stdout; progress bar goes to stderr (tty).
-    def _build_cmd(resume: bool) -> list[str]:
+    def _build_cmd(resume: bool, http1: bool = False) -> list[str]:
         cmd = ["curl", "-L"]
         if resume:
             cmd += ["-C", "-"]      # resume if partial file exists
+        if http1:
+            cmd += ["--http1.1"]    # force HTTP/1.1 (fallback for H2 stream errors)
         cmd += [
             "-o", str(dest),
             "--progress-bar",
@@ -261,6 +264,11 @@ def download_iso(url: str, dest: Path, user_agent: str = USER_AGENT) -> None:
             dest.unlink()
         result = subprocess.run(_build_cmd(resume=False), stdout=subprocess.PIPE, text=True)
 
+    # curl exit code 92 = HTTP/2 stream error.
+    # Retry forcing HTTP/1.1; keep any partial file so resume can still work.
+    if result.returncode == 92:
+        result = subprocess.run(_build_cmd(resume=True, http1=True), stdout=subprocess.PIPE, text=True)
+
     if result.returncode != 0:
         raise RuntimeError(
             f"curl exited with code {result.returncode} for {url}"
@@ -276,6 +284,161 @@ def download_iso(url: str, dest: Path, user_agent: str = USER_AGENT) -> None:
               f"({_fmt_speed(speed)})")
     except (ValueError, IndexError):
         pass  # non-critical; just skip the summary line
+
+
+# ---------------------------------------------------------------------------
+# Backup
+# ---------------------------------------------------------------------------
+
+def backup_to(ventoy_path: Path, backup_path: Path, dry_run: bool,
+              isos: dict | None = None) -> None:
+    """
+    Copy ISOs from *ventoy_path* to *backup_path*, skipping files that are
+    already present with the same size.  Old versions of replaced ISOs in the
+    backup directory are removed (same prefix-based logic used on the drive).
+
+    Uses rsync (--checksum) when available for efficient delta-copy and
+    resume support; falls back to shutil.copy2 otherwise.
+
+    Only .iso and .img files are considered; state.json, summary.md, etc.
+    are intentionally excluded.
+    """
+    if not backup_path.exists():
+        if dry_run:
+            print(f"  {YELLOW}(dry-run){RESET} Would create backup dir {backup_path}")
+        else:
+            backup_path.mkdir(parents=True, exist_ok=True)
+            print(f"  Created backup directory {backup_path}")
+
+    # Build a map of filename prefix → current filename for every configured
+    # ISO entry.  This lets us find and remove stale old versions in the backup.
+    # Each entry contributes up to two prefixes:
+    #   1. The raw filename prefix (e.g. "archlinux-")
+    #   2. The friendly-name prefix when rename is enabled (e.g. "Arch Linux - ")
+    prefix_to_current: dict[str, str] = {}
+    if isos:
+        for key, entry in isos.items():
+            # raw prefix from filename_template
+            raw_prefix = iso_prefix(entry, key)
+            # friendly prefix from name (used when rename: true)
+            friendly_prefix = entry.get("name", "") if entry.get("rename") else ""
+
+            # The current filename on the drive is whichever .iso/.img file
+            # matches this entry's prefix — look for it live so we don't need
+            # to thread state through here.
+            current = next(
+                (
+                    f.name for f in ventoy_path.iterdir()
+                    if f.is_file()
+                    and f.suffix.lower() in (".iso", ".img")
+                    and (
+                        f.name.startswith(raw_prefix)
+                        or (friendly_prefix and f.name.startswith(friendly_prefix))
+                    )
+                ),
+                None,
+            )
+            if current:
+                if raw_prefix:
+                    prefix_to_current[raw_prefix] = current
+                if friendly_prefix:
+                    prefix_to_current[friendly_prefix] = current
+
+    # Collect all ISO/image files on the Ventoy drive
+    candidates = sorted(
+        f for f in ventoy_path.iterdir()
+        if f.is_file() and f.suffix.lower() in (".iso", ".img")
+    )
+
+    if not candidates:
+        print("  No ISO/image files found on Ventoy drive — nothing to back up.")
+        return
+
+    copied = []
+    skipped = []
+    deleted = []
+    errors = []
+
+    # Detect rsync once
+    has_rsync = subprocess.run(
+        ["which", "rsync"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    ).returncode == 0
+
+    for src in candidates:
+        dst = backup_path / src.name
+
+        # Before copying, remove any stale old version in the backup that
+        # shares the same prefix but has a different name.
+        for prefix, current_name in prefix_to_current.items():
+            if current_name != src.name:
+                continue  # this prefix maps to a different entry; skip
+            for old in backup_path.iterdir() if backup_path.exists() else []:
+                if (
+                    old.is_file()
+                    and old.name != src.name
+                    and old.name.startswith(prefix)
+                    and old.suffix.lower() in (".iso", ".img")
+                ):
+                    if dry_run:
+                        print(f"  {YELLOW}(dry-run){RESET} Would remove stale backup: {old.name}")
+                        deleted.append(old.name)
+                    else:
+                        old.unlink()
+                        print(f"  Removed stale backup: {old.name}")
+                        deleted.append(old.name)
+
+        # Skip if destination exists and sizes match
+        if dst.exists() and dst.stat().st_size == src.stat().st_size:
+            skipped.append(src.name)
+            continue
+
+        reason = "missing" if not dst.exists() else "size mismatch"
+        if dry_run:
+            print(f"  {CYAN}(dry-run){RESET} Would copy {src.name}  [{reason}]")
+            copied.append(src.name)
+            continue
+
+        print(f"  Copying {src.name}  [{reason}] ...")
+        try:
+            if has_rsync:
+                subprocess.run(
+                    [
+                        "rsync",
+                        "--checksum",       # compare by checksum, not mtime
+                        "--partial",        # keep partial file on interrupt
+                        "--progress",
+                        str(src),
+                        str(dst),
+                    ],
+                    check=True,
+                )
+            else:
+                import shutil
+                shutil.copy2(src, dst)
+                print(f"  Copied {src.name}")
+            copied.append(src.name)
+        except Exception as exc:
+            print(f"  {RED}ERROR{RESET} copying {src.name}: {exc}")
+            errors.append(src.name)
+
+    # Summary
+    print(f"\n  Backup to {backup_path}:")
+    if copied:
+        verb = "Would copy" if dry_run else "Copied"
+        print(f"    {GREEN}{verb}:{RESET} {len(copied)} file(s)")
+        for name in copied:
+            print(f"      {name}")
+    if deleted:
+        verb = "Would remove" if dry_run else "Removed"
+        print(f"    {YELLOW}{verb} stale:{RESET} {len(deleted)} file(s)")
+        for name in deleted:
+            print(f"      {name}")
+    if skipped:
+        print(f"    {YELLOW}Already up-to-date:{RESET} {len(skipped)} file(s)")
+    if errors:
+        print(f"    {RED}Errors:{RESET} {len(errors)} file(s)")
+        for name in errors:
+            print(f"      {name}")
 
 
 # ---------------------------------------------------------------------------
@@ -644,6 +807,10 @@ def main():
         "--config", metavar="FILE", default=None,
         help="Path to config.yaml (default: alongside this script)."
     )
+    parser.add_argument(
+        "--backup", metavar="PATH", default=None,
+        help="Copy new/missing ISOs to this directory after syncing."
+    )
     args = parser.parse_args()
 
     # Resolve config path
@@ -684,6 +851,11 @@ def main():
         save_state(state_path, state)
 
     generate_summary(results, ventoy_path, args.dry_run)
+
+    # Optional backup pass
+    if args.backup:
+        print(f"\n{BOLD}=== Backup ==={RESET}")
+        backup_to(ventoy_path, Path(args.backup), args.dry_run, isos=config["isos"])
 
     # Final console summary
     updated = sum(1 for r in results if r.status == "updated")
