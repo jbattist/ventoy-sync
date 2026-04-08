@@ -11,6 +11,8 @@ Automated ISO updater for [Ventoy](https://www.ventoy.net/) USB drives. Checks u
 - **Auto-cleanup** of old ISO versions after successful download
 - **Named capture groups** for complex version strings (e.g. Fedora `{major}-{build}`)
 - **Zip extraction** for ISOs distributed as `.zip` files (e.g. Memtest86+)
+- **Backup mode** to copy new/updated ISOs to a second location after sync
+- **HTTP/2 fallback** to HTTP/1.1 on stream errors
 - **Systemd timer** for daily automated sync
 - **Dry-run mode** to check for updates without downloading
 - **Per-ISO checking** via `--check KEY`
@@ -32,13 +34,16 @@ Automated ISO updater for [Ventoy](https://www.ventoy.net/) USB drives. Checks u
 | Clonezilla | regex | |
 | Rescuezilla | regex | |
 | GParted Live | regex | |
-| SystemRescue | regex | SourceForge mirror |
+| SystemRescue | regex | |
 | Windows 11 | headers | Disabled; requires manual URL |
 | Fedora Workstation | regex | Named groups `{major}`, `{build}` |
 | Debian Live (GNOME) | regex | |
 | NixOS (Minimal) | regex | |
 | Tails | regex | |
 | Kali Linux (Live) | regex | |
+| KDE Neon (User Edition) | regex | |
+| Omarchy | regex | |
+| Garuda Linux (Mokka) | regex | `regex_last` for chronological directory listing |
 | Memtest86+ | regex | `unzip: true` (ships as `.iso.zip`) |
 | ShredOS | regex | Named groups `{tag}`, `{fname}` |
 | DBAN | regex | Discontinued; custom `user_agent` |
@@ -73,6 +78,9 @@ $EDITOR config.yaml
 
 # Check a single ISO
 ./ventoy-sync.py --check archlinux
+
+# Copy new/updated ISOs to a backup location after syncing
+./ventoy-sync.py --backup /mnt/backup
 ```
 
 ## Configuration
