@@ -42,6 +42,7 @@ Automated ISO updater for [Ventoy](https://www.ventoy.net/) USB drives. Checks u
 | Tails | regex | |
 | Kali Linux (Live) | regex | |
 | KDE Neon (User Edition) | regex | |
+| Archcraft | headers | SourceForge `latest/download`; custom `user_agent` |
 | Omarchy | regex | |
 | Garuda Linux (Mokka) | regex | `regex_last` for chronological directory listing |
 | Memtest86+ | regex | `unzip: true` (ships as `.iso.zip`) |

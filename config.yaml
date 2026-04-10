@@ -195,6 +195,13 @@ isos:
     download_url_template: "https://files.kde.org/neon/images/user/{version}/neon-user-{version}.iso"
     filename_template: "neon-user-{version}.iso"
 
+  archcraft:
+    name: "Archcraft"
+    rename: true
+    method: "headers"
+    download_url: "https://sourceforge.net/projects/archcraft/files/latest/download"
+    user_agent: "Wget/1.21.3"
+
   omarchy:
     name: "Omarchy"
     method: "regex"
