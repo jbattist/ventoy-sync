@@ -29,11 +29,14 @@ isos:
     download_url_template: "https://mirror.cachyos.org/ISO/desktop/{version}/cachyos-desktop-linux-{version}.iso"
     filename_template: "cachyos-desktop-linux-{version}.iso"
 
-  ubuntu_daily:
-    name: "Ubuntu Desktop (Daily)"
+  ubuntu_lts:
+    name: "Ubuntu 24.04 LTS (Desktop)"
     rename: true
-    method: "headers"
-    download_url: "https://cdimage.ubuntu.com/daily-live/current/resolute-desktop-amd64.iso"
+    method: "regex"
+    url: "https://releases.ubuntu.com/noble/"
+    regex: 'ubuntu-(24\.04\.\d+)-desktop-amd64\.iso'
+    download_url_template: "https://releases.ubuntu.com/noble/ubuntu-{version}-desktop-amd64.iso"
+    filename_template: "ubuntu-{version}-desktop-amd64.iso"
 
   proxmox_ve:
     name: "Proxmox VE"
@@ -66,8 +69,9 @@ isos:
     name: "Zorin OS (Core)"
     rename: true
     method: "regex"
-    url: "https://zorin.com/os/download/18/core/"
-    regex: 'zorinos-isos/(?P<major>\d+)/Zorin-OS-\d+-Core-64-bit(?P<rev>-r\d+)?\.iso'
+    url: "https://mirrors.edge.kernel.org/zorinos-isos/18/"
+    regex: 'Zorin-OS-(?P<major>\d+)-Core-64-bit(?P<rev>-r\d+)?\.iso'
+    regex_last: true  # Pick the latest revision (r1, r2, r3...)
     download_url_template: "https://mirrors.edge.kernel.org/zorinos-isos/{major}/Zorin-OS-{major}-Core-64-bit{rev}.iso"
     filename_template: "Zorin-OS-{major}-Core-64-bit{rev}.iso"
 
