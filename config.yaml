@@ -81,7 +81,7 @@ isos:
     method: "regex"
     url: "https://www.truenas.com/download-truenas-scale/"
     regex: 'TrueNAS-SCALE-([\d.]+)\.iso'
-    download_url_template: "https://download.truenas.com/TrueNAS-SCALE-Fangtooth/{version}/TrueNAS-SCALE-{version}.iso"
+    download_url_template: "https://download.truenas.com/TrueNAS-SCALE-Goldeye/{version}/TrueNAS-SCALE-{version}.iso"
     filename_template: "TrueNAS-SCALE-{version}.iso"
 
   hirens_bootcd:
@@ -196,7 +196,7 @@ isos:
   omarchy:
     name: "Omarchy"
     method: "regex"
-    url: "https://github.com/basecamp/omarchy/releases/latest"
+    url: "https://github.com/basecamp/omarchy/releases"
     regex: 'iso\.omarchy\.org/omarchy-([\d.]+-\d+)\.iso'
     download_url_template: "https://iso.omarchy.org/omarchy-{version}.iso"
     filename_template: "omarchy-{version}.iso"
