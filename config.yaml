@@ -143,7 +143,9 @@ isos:
     name: "Fedora Workstation"
     rename: true
     method: "regex"
-    url: "https://fedoraproject.org/workstation/download"
+    # Use Fedora's machine-readable release manifest instead of the marketing
+    # download page, which intermittently closes connections to scripted fetches.
+    url: "https://fedoraproject.org/releases.json"
     regex: 'Fedora-Workstation-Live-(?P<major>\d+)-(?P<build>[\d.]+)\.x86_64\.iso'
     download_url_template: "https://download.fedoraproject.org/pub/fedora/linux/releases/{major}/Workstation/x86_64/iso/Fedora-Workstation-Live-{major}-{build}.x86_64.iso"
     filename_template: "Fedora-Workstation-Live-{major}-{build}.x86_64.iso"
