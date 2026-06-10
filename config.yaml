@@ -150,6 +150,15 @@ isos:
     download_url_template: "https://download.fedoraproject.org/pub/fedora/linux/releases/{major}/Workstation/x86_64/iso/Fedora-Workstation-Live-{major}-{build}.x86_64.iso"
     filename_template: "Fedora-Workstation-Live-{major}-{build}.x86_64.iso"
 
+  fedora_everything:
+    name: "Fedora Everything (netinst)"
+    rename: true
+    method: "regex"
+    url: "https://fedoraproject.org/releases.json"
+    regex: 'Fedora-Everything-netinst-x86_64-(?P<major>\d+)-(?P<build>[\d.]+)\.iso'
+    download_url_template: "https://download.fedoraproject.org/pub/fedora/linux/releases/{major}/Everything/x86_64/iso/Fedora-Everything-netinst-x86_64-{major}-{build}.iso"
+    filename_template: "Fedora-Everything-netinst-x86_64-{major}-{build}.iso"
+
   debian_live:
     name: "Debian Live (GNOME)"
     rename: true
