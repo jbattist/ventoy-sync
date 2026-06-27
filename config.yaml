@@ -96,8 +96,11 @@ isos:
     method: "regex"
     url: "https://clonezilla.org/downloads.php"
     regex: '<b>stable</b>\s*-\s*<font[^>]*>([\d.-]+)</font>'
-    download_url_template: "https://sourceforge.net/projects/clonezilla/files/clonezilla_live_stable/{version}/clonezilla-live-{version}-amd64.iso/download"
+    # SourceForge project pages can return Cloudflare 403 to curl; use the
+    # direct mirror endpoint (same pattern already used successfully for GParted).
+    download_url_template: "https://master.dl.sourceforge.net/project/clonezilla/clonezilla_live_stable/{version}/clonezilla-live-{version}-amd64.iso?viasf=1"
     filename_template: "clonezilla-live-{version}-amd64.iso"
+    user_agent: "Wget/1.21.3"
 
   rescuezilla:
     name: "Rescuezilla"
@@ -200,9 +203,9 @@ isos:
     rename: true
     method: "regex"
     url: "https://neon.kde.org/download"
-    regex: 'neon-user-(\d{8}-\d{4})\.iso'
-    download_url_template: "https://files.kde.org/neon/images/user/{version}/neon-user-{version}.iso"
-    filename_template: "neon-user-{version}.iso"
+    regex: 'neon-user-desktop-(\d{8}-\d{4})\.iso'
+    download_url_template: "https://files.kde.org/neon/images/desktop/user/{version}/neon-user-desktop-{version}.iso"
+    filename_template: "neon-user-desktop-{version}.iso"
 
   archcraft:
     name: "Archcraft"
