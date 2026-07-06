@@ -809,7 +809,8 @@ def main():
     )
     parser.add_argument(
         "--backup", metavar="PATH", default=None,
-        help="Copy new/missing ISOs to this directory after syncing."
+        help="Copy new/missing ISOs to this directory after syncing "
+             "(overrides backup_path in config.yaml)."
     )
     args = parser.parse_args()
 
@@ -852,10 +853,11 @@ def main():
 
     generate_summary(results, ventoy_path, args.dry_run)
 
-    # Optional backup pass
-    if args.backup:
+    # Optional backup pass (CLI --backup overrides config backup_path)
+    backup_path = args.backup or config.get("backup_path")
+    if backup_path:
         print(f"\n{BOLD}=== Backup ==={RESET}")
-        backup_to(ventoy_path, Path(args.backup), args.dry_run, isos=config["isos"])
+        backup_to(ventoy_path, Path(backup_path), args.dry_run, isos=config["isos"])
 
     # Final console summary
     updated = sum(1 for r in results if r.status == "updated")
