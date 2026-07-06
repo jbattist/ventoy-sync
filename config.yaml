@@ -1,5 +1,5 @@
 ventoy_path: "/run/media/joe/VENTOY"
-backup_path: "/mnt/iso"
+backup_path: "/mnt/iso/template/iso"
 
 isos:
   archlinux:
