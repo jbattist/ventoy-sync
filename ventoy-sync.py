@@ -122,12 +122,48 @@ def check_regex(entry: dict) -> tuple[str, str, str] | None:
         return None
 
     ua = entry.get("user_agent", USER_AGENT)
-    try:
-        resp = requests.get(url, timeout=REQUEST_TIMEOUT,
-                            headers={"User-Agent": ua})
-        resp.raise_for_status()
-    except requests.RequestException as exc:
-        raise RuntimeError(f"Failed to fetch {url}: {exc}") from exc
+
+    def fetch(fetch_url: str):
+        last_exc = None
+        for attempt in range(3):
+            try:
+                response = requests.get(fetch_url, timeout=REQUEST_TIMEOUT,
+                                        headers={"User-Agent": ua})
+                response.raise_for_status()
+                return response
+            except requests.RequestException as exc:
+                last_exc = exc
+                # Retry transient connection failures and server errors, but
+                # fail immediately on deterministic client errors such as 403.
+                status = getattr(getattr(exc, "response", None), "status_code", 0)
+                if 400 <= status < 500 or attempt == 2:
+                    break
+                time.sleep(attempt + 1)
+        raise RuntimeError(f"Failed to fetch {fetch_url}: {last_exc}") from last_exc
+
+    # Some sources have a two-level layout: first discover the latest build
+    # directory, then inspect that directory to discover the actual filename.
+    if entry.get("directory_url"):
+        directory_resp = fetch(entry["directory_url"])
+        directory_matches = list(re.finditer(
+            entry["directory_regex"], directory_resp.text
+        ))
+        if not directory_matches:
+            raise RuntimeError(
+                f"Regex {entry['directory_regex']!r} found no match on "
+                f"{entry['directory_url']}"
+            )
+        directory_match = (
+            directory_matches[-1] if entry.get("directory_regex_last")
+            else directory_matches[0]
+        )
+        directory_subs = {
+            "version": directory_match.group(1),
+            **{k: (v or "") for k, v in directory_match.groupdict().items()},
+        }
+        url = entry["url_template"].format_map(directory_subs)
+
+    resp = fetch(url)
 
     # Some pages list versions chronologically (e.g. mirror directory listings).
     # When regex_last is set, grab the *last* match on the page instead of first.
@@ -623,6 +659,50 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
             result.status = "updated"
             if not result.message:
                 result.message = f"{result.old_version or '(new)'} -> {version}"
+
+        elif method == "fixed":
+            version = str(entry.get("version", ""))
+            download_url = entry.get("download_url", "")
+            filename = entry.get("filename", "")
+            if not all([version, download_url, filename]):
+                result.status = "error"
+                result.message = "Missing version, download_url, or filename"
+                return result
+
+            result.version = version
+            result.filename = filename
+            result.old_version = state_entry.get("version", "")
+            if version == result.old_version:
+                result.status = "skipped"
+                result.message = f"Already at {version}"
+                return result
+            if dry_run:
+                result.status = "available"
+                result.message = (
+                    f"Update available: {result.old_version or '(none)'} -> {version}"
+                )
+                return result
+
+            dest = ventoy_path / filename
+            download_iso(download_url, dest, ua)
+            if not dest.exists() or dest.stat().st_size == 0:
+                raise RuntimeError("Download produced empty or missing file")
+
+            final_filename = friendly_filename(entry, version, filename)
+            if final_filename != filename:
+                final_dest = ventoy_path / final_filename
+                dest.rename(final_dest)
+
+            state[key] = {
+                "version": version,
+                "filename": final_filename,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if state_path:
+                save_state(state_path, state)
+            result.filename = final_filename
+            result.status = "updated"
+            result.message = f"{result.old_version or '(new)'} -> {version}"
 
         elif method == "headers":
             dl_url = entry.get("download_url", "")
