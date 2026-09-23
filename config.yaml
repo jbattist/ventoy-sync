@@ -13,10 +13,13 @@ isos:
     name: EndeavourOS
     rename: true
     method: regex
-    url: https://endeavouros.com/latest-release/
-    regex: EndeavourOS_([\w.-]+)\.iso
-    download_url_template: https://mirror.alpix.eu/endeavouros/iso/EndeavourOS_{version}.iso
-    filename_template: EndeavourOS_{version}.iso
+    # endeavouros.com/latest-release/ was retired (now 404); scrape the alpix
+    # mirror's directory listing instead and pick the newest release date.
+    url: https://mirror.alpix.eu/endeavouros/iso/
+    regex: 'EndeavourOS_(?P<codename>[\w-]+?)-(?P<version>\d{4}\.\d{2}\.\d{2})\.iso'
+    regex_last: true
+    download_url_template: https://mirror.alpix.eu/endeavouros/iso/EndeavourOS_{codename}-{version}.iso
+    filename_template: EndeavourOS_{codename}-{version}.iso
   cachyos:
     name: CachyOS
     rename: true
@@ -30,9 +33,11 @@ isos:
     name: Ubuntu 24.04 LTS (Desktop)
     rename: true
     method: regex
-    url: https://releases.ubuntu.com/noble/
-    regex: ubuntu-(24\.04\.\d+)-desktop-amd64\.iso
-    download_url_template: https://releases.ubuntu.com/noble/ubuntu-{version}-desktop-amd64.iso
+    # releases.ubuntu.com returns 403 from this host; use the equivalent mirror.
+    url: https://mirrors.kernel.org/ubuntu-releases/24.04/
+    regex: 'ubuntu-(24\.04\.\d+)-desktop-amd64\.iso'
+    regex_last: true
+    download_url_template: https://mirrors.kernel.org/ubuntu-releases/24.04/ubuntu-{version}-desktop-amd64.iso
     filename_template: ubuntu-{version}-desktop-amd64.iso
   proxmox_ve:
     name: Proxmox VE

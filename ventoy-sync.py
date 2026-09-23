@@ -171,15 +171,24 @@ def check_regex(entry: dict) -> tuple[str, str, str] | None:
         matches = list(re.finditer(pattern, resp.text))
         if not matches:
             raise RuntimeError(f"Regex {pattern!r} found no match on {url}")
-        match = matches[-1]
+        # Directory listings are alphabetical, not chronological. When the
+        # regex exposes a named 'version' group, pick the match with the
+        # highest version value; otherwise fall back to the last occurrence.
+        if "version" in matches[0].re.groupindex:
+            match = max(matches, key=lambda m: m.group("version") or "")
+        else:
+            match = matches[-1]
     else:
         match = re.search(pattern, resp.text)
         if not match:
             raise RuntimeError(f"Regex {pattern!r} found no match on {url}")
 
-    version = match.group(1)
+    # A named 'version' group takes precedence over positional group 1.
+    # This lets filenames include metadata (such as an EndeavourOS codename)
+    # without using that metadata as the tracked release version.
+    version = match.groupdict().get("version") or match.group(1)
 
-    # Build template substitutions: {version} is always group 1,
+    # Build template substitutions: {version} is the tracked release version,
     # plus any named groups (?P<name>...) are available as {name}.
     subs = {"version": version}
     subs.update({k: (v or "") for k, v in match.groupdict().items()})
