@@ -178,9 +178,11 @@ isos:
     rename: true
     method: regex
     url: https://neon.kde.org/download
-    regex: neon-user-desktop-(\d{8}-\d{4})\.iso
-    download_url_template: https://files.kde.org/neon/images/desktop/user/{version}/neon-user-desktop-{version}.iso
-    filename_template: neon-user-desktop-{version}.iso
+    # KDE renamed the user image from desktop/neon-user-desktop-* to
+    # desk/neon-user-desk-* in Oct 2026.
+    regex: neon-user-desk-(\d{8}-\d{4})\.iso
+    download_url_template: https://files.kde.org/neon/images/desk/user/{version}/neon-user-desk-{version}.iso
+    filename_template: neon-user-desk-{version}.iso
   archcraft:
     name: Archcraft
     rename: true

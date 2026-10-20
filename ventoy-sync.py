@@ -22,6 +22,7 @@ if os.path.isfile(_VENV_PYTHON) and sys.executable != _VENV_PYTHON:
     os.execv(_VENV_PYTHON, [_VENV_PYTHON] + sys.argv)
 
 import argparse
+import fcntl
 import json
 import re
 import subprocess
@@ -36,12 +37,19 @@ import yaml
 # ---------------------------------------------------------------------------
 # ANSI colours for terminal output
 # ---------------------------------------------------------------------------
-BOLD = "\033[1m"
-RED = "\033[91m"
-GREEN = "\033[92m"
-YELLOW = "\033[93m"
-CYAN = "\033[96m"
-RESET = "\033[0m"
+# Colours and curl's progress bar only make sense on a terminal. Under the
+# systemd timer stdout goes to the journal, where they become escape-code noise
+# and multi-kilobyte "blob data" entries.
+IS_TTY = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+if IS_TTY:
+    BOLD = "\033[1m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    CYAN = "\033[96m"
+    RESET = "\033[0m"
+else:
+    BOLD = RED = GREEN = YELLOW = CYAN = RESET = ""
 
 REQUEST_TIMEOUT = 30  # seconds for HTTP requests
 USER_AGENT = (
@@ -101,6 +109,46 @@ def save_state(state_path: Path, state: dict) -> None:
         json.dump(state, f, indent=2)
         f.write("\n")
     tmp.rename(state_path)
+
+
+def update_state_entry(state_path: Path | None, state: dict, key: str,
+                       value: dict) -> None:
+    """Record *value* for *key* and persist just that entry.
+
+    Re-reads state.json from disk and changes only *key*, so an in-memory
+    copy loaded earlier can never roll back entries written since (for
+    example by another run).
+    """
+    state[key] = value
+    if state_path is None:
+        return
+    on_disk = load_state(state_path)
+    on_disk[key] = value
+    save_state(state_path, on_disk)
+
+
+def acquire_lock(ventoy_path: Path):
+    """Take an exclusive, non-blocking lock for this Ventoy drive.
+
+    Returns the open lock file (keep it referenced for the life of the run),
+    or None if another ventoy-sync run already holds the lock.
+    """
+    lock_path = ventoy_path / ".ventoy-sync.lock"
+    fh = open(lock_path, "a+")
+    try:
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        fh.seek(0)
+        holder = fh.read().strip() or "unknown"
+        fh.close()
+        print(f"{YELLOW}Another ventoy-sync run is already in progress "
+              f"(pid {holder}); exiting.{RESET}")
+        return None
+    fh.seek(0)
+    fh.truncate()
+    fh.write(f"{os.getpid()}\n")
+    fh.flush()
+    return fh
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +337,7 @@ def download_iso(url: str, dest: Path, user_agent: str = USER_AGENT) -> None:
             cmd += ["--http1.1"]    # force HTTP/1.1 (fallback for H2 stream errors)
         cmd += [
             "-o", str(dest),
-            "--progress-bar",
+            *(["--progress-bar"] if IS_TTY else ["--silent", "--show-error"]),
             "--fail",               # fail on HTTP errors
             "--retry", "3",
             "--retry-delay", "5",
@@ -657,13 +705,11 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
 
             # Update state
             result.filename = final_filename
-            state[key] = {
+            update_state_entry(state_path, state, key, {
                 "version": version,
                 "filename": final_filename,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            if state_path:
-                save_state(state_path, state)
+            })
 
             result.status = "updated"
             if not result.message:
@@ -702,13 +748,11 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
                 final_dest = ventoy_path / final_filename
                 dest.rename(final_dest)
 
-            state[key] = {
+            update_state_entry(state_path, state, key, {
                 "version": version,
                 "filename": final_filename,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            if state_path:
-                save_state(state_path, state)
+            })
             result.filename = final_filename
             result.status = "updated"
             result.message = f"{result.old_version or '(new)'} -> {version}"
@@ -756,13 +800,11 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
                     old_path.unlink()
                     result.message = f"Removed old: {old_fn}"
 
-            state[key] = {
+            update_state_entry(state_path, state, key, {
                 **new_headers,
                 "filename": final_filename,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            if state_path:
-                save_state(state_path, state)
+            })
 
             result.filename = final_filename
             result.status = "updated"
@@ -923,6 +965,13 @@ def main():
             f"{RED}Error:{RESET} Ventoy path {ventoy_path} is not writable."
         )
 
+    # One run per drive at a time. Overlapping runs (e.g. a manual run while
+    # the timer's run is in progress) download into the same file and each
+    # writes its own stale view of state.json.
+    lock = acquire_lock(ventoy_path)
+    if lock is None:
+        sys.exit(0)
+
     state_path = ventoy_path / "state.json"
     state = load_state(state_path)
 
@@ -936,9 +985,8 @@ def main():
                        state_path=state_path)
     elapsed = time.monotonic() - start
 
-    # Save state (even on dry-run we don't modify state, but this is safe)
-    if not args.dry_run:
-        save_state(state_path, state)
+    # State is persisted per entry as each ISO is updated (update_state_entry);
+    # no whole-file save here, which could roll back concurrent changes.
 
     generate_summary(results, ventoy_path, args.dry_run)
 
