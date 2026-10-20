@@ -1,14 +1,24 @@
 [Unit]
 Description=Ventoy ISO Sync Service
-After=network-online.target
-Wants=network-online.target
+# Skip (not fail) when the Ventoy drive isn't plugged in and mounted.
+# install.sh fills this in from ventoy_path in config.yaml.
+ConditionPathIsMountPoint=__VENTOY_PATH__
 
 [Service]
 Type=oneshot
+# network-online.target doesn't exist in the user manager, so ordering on it
+# is a no-op. Wait for NetworkManager connectivity instead; the leading "-"
+# lets the sync proceed (its own requests retry) if nm-online is absent or
+# times out.
+ExecStartPre=-/usr/bin/nm-online -q -t 60
 ExecStart=__SCRIPT_DIR__/ventoy-sync.py
 WorkingDirectory=__SCRIPT_DIR__
 Environment=PYTHONUNBUFFERED=1
-TimeoutStartSec=3600
+# Big downloads on a slow day can take a while.
+TimeoutStartSec=3h
+# Background job: keep the desktop responsive while it downloads and copies.
+Nice=10
+IOSchedulingClass=idle
 
-[Install]
-WantedBy=default.target
+# No [Install] section: the service is started by ventoy-sync.timer only.
+# (WantedBy=default.target would also run a full sync at every login.)

@@ -176,7 +176,12 @@ On the Ventoy drive:
 
 ## Systemd timer
 
-The timer runs daily with a random delay up to 30 minutes. Manage it with:
+The timer runs daily with a random delay up to 30 minutes (and catches up after
+downtime). The service only runs when the Ventoy drive is mounted at
+`ventoy_path`; otherwise the run is skipped rather than marked failed, so re-run
+`./install.sh` after changing `ventoy_path`. It runs at low CPU/IO priority and
+waits up to 60s for network via `nm-online`. Overlapping runs are prevented by a
+lock on the drive. Manage it with:
 
 ```bash
 systemctl --user status ventoy-sync.timer     # Timer status

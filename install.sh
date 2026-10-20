@@ -32,8 +32,11 @@ mkdir -p "${SYSTEMD_USER_DIR}"
 rm -f "${SYSTEMD_USER_DIR}/ventoy-sync.service"
 
 # Template the service file with the actual project path
-sed "s|__SCRIPT_DIR__|${SCRIPT_DIR}|g" "${SCRIPT_DIR}/ventoy-sync.service" \
-    > "${SYSTEMD_USER_DIR}/ventoy-sync.service"
+VENTOY_PATH="$("${VENV_DIR}/bin/python3" -c 'import sys, yaml; print(yaml.safe_load(open(sys.argv[1]))["ventoy_path"])' "${SCRIPT_DIR}/config.yaml")"
+# A service enabled by an older install.sh would also run at every login.
+systemctl --user disable ventoy-sync.service 2>/dev/null || true
+sed -e "s|__SCRIPT_DIR__|${SCRIPT_DIR}|g" -e "s|__VENTOY_PATH__|${VENTOY_PATH}|g" \
+    "${SCRIPT_DIR}/ventoy-sync.service" > "${SYSTEMD_USER_DIR}/ventoy-sync.service"
 ln -sf "${SCRIPT_DIR}/ventoy-sync.timer" "${SYSTEMD_USER_DIR}/ventoy-sync.timer"
 systemctl --user daemon-reload
 
@@ -54,4 +57,6 @@ echo "  Check one ISO:   ${SCRIPT_DIR}/ventoy-sync.py --check archlinux"
 echo "  Timer status:    systemctl --user status ventoy-sync.timer"
 echo "  Run now:         systemctl --user start ventoy-sync.service"
 echo "  View logs:       journalctl --user -u ventoy-sync.service"
+echo ""
+echo "Re-run ./install.sh after changing ventoy_path in config.yaml."
 echo "  Disable timer:   systemctl --user disable --now ventoy-sync.timer"
