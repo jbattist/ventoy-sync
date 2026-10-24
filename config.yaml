@@ -157,6 +157,14 @@ isos:
     regex: channels\.nixos\.org/nixos-([\d.]+)/latest-nixos-minimal-x86_64-linux\.iso
     download_url_template: https://channels.nixos.org/nixos-{version}/latest-nixos-minimal-x86_64-linux.iso
     filename_template: nixos-minimal-{version}-x86_64-linux.iso
+  nixos-graphical:
+    name: NixOS (Graphical)
+    rename: true
+    method: regex
+    url: https://nixos.org/download/
+    regex: channels\.nixos\.org/nixos-([\d.]+)/latest-nixos-graphical-x86_64-linux\.iso
+    download_url_template: https://channels.nixos.org/nixos-{version}/latest-nixos-graphical-x86_64-linux.iso
+    filename_template: nixos-graphical-{version}-x86_64-linux.iso
   tails:
     name: Tails
     rename: true
