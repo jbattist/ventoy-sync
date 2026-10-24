@@ -1,4 +1,4 @@
-ventoy_path: /run/media/joe/VENTOY
+ventoy_path: /mnt/ventoy
 backup_path: /mnt/iso/template/iso
 isos:
   archlinux:
