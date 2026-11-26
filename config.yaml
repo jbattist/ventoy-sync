@@ -204,18 +204,33 @@ isos:
     regex: iso\.omarchy\.org/omarchy-([\d.]+)\.iso
     download_url_template: https://iso.omarchy.org/omarchy-{version}.iso
     filename_template: omarchy-{version}.iso
-  garuda_mokka:
-    name: Garuda Linux (Mokka)
+  pearos:
+    name: PearOS (Debian)
     rename: true
     method: regex
-    url: https://iso.builds.garudalinux.org/iso/garuda/mokka/
-    regex: href="garuda-mokka-linux-(?=[^"]+-(?P<version>\d{6})\.iso)(?P<kernel>[\w-]+)-(?P=version)\.iso"
-    url_template: https://iso.builds.garudalinux.org/iso/garuda/mokka/{latest_dir}/
-    directory_url: https://iso.builds.garudalinux.org/iso/garuda/mokka/
-    directory_regex: href="(?P<latest_dir>\d{6})/"
-    directory_regex_last: true
-    download_url_template: https://iso.builds.garudalinux.org/iso/garuda/mokka/{version}/garuda-mokka-linux-{kernel}-{version}.iso
-    filename_template: garuda-mokka-linux-{kernel}-{version}.iso
+    # pearos.xyz's download pages are JS-rendered; the underlying version
+    # feeds are static JSON. The first object is the current "Latest" build.
+    url: https://pearos.xyz/assets/data/debian-versions.json
+    regex: pearOS-(?P<build>[\w]+(?:-Beta)?)-(?P<version>\d{4}\.\d+)-x86_64\.iso
+    download_url_template: https://iso.pearos.xyz/iso/pearOS-{build}-{version}-x86_64.iso
+    filename_template: pearOS-{build}-{version}-x86_64.iso
+  pop_os:
+    name: Pop!_OS (Generic)
+    rename: true
+    method: regex
+    url: https://system76.com/pop/download
+    # First "generic" (open-source-driver) image on the page; the 22.04 links
+    # are intel/nvidia-blob variants and don't match. version tracks the ISO
+    # build revision so build bumps are detected even when 24.04 stays fixed.
+    regex: pop-os_(?P<major>\d{2}\.\d+)_amd64_generic_(?P<version>\d+)\.iso
+    download_url_template: https://iso.pop-os.org/{major}/amd64/generic/{version}/pop-os_{major}_amd64_generic_{version}.iso
+    filename_template: pop-os_{major}_amd64_generic_{version}.iso
+    user_agent: Mozilla/5.0 (X11; Linux x86_64)
+  pond:
+    name: Pond
+    rename: true
+    method: headers
+    download_url: https://releases.butterfly.so/iso
   memtest86plus:
     name: Memtest86+
     rename: true
