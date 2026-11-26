@@ -200,10 +200,15 @@ isos:
   omarchy:
     name: Omarchy
     method: regex
-    url: https://api.github.com/repos/basecamp/omarchy/releases/latest
-    regex: iso\.omarchy\.org/omarchy-([\d.]+)\.iso
-    download_url_template: https://iso.omarchy.org/omarchy-{version}.iso
-    filename_template: omarchy-{version}.iso
+    # basecamp/omarchy was renamed to omacom/omarchy, and since v4.5.0 the
+    # GitHub release body carries no ISO link at all. Filenames on
+    # iso.omarchy.org also gained an arch suffix (-x86 / -aarch64). omarchy.org
+    # is the documented canonical source and always links the current release.
+    # (Carried over from an uncommitted fix on axis.)
+    url: https://omarchy.org/
+    regex: iso\.omarchy\.org/omarchy-(?P<version>\d+\.\d+\.\d+(?:-rc\d+)?)-(?P<arch>x86)\.iso
+    download_url_template: https://iso.omarchy.org/omarchy-{version}-{arch}.iso
+    filename_template: omarchy-{version}-{arch}.iso
   pearos:
     name: PearOS (Debian)
     rename: true
