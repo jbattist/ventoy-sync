@@ -243,6 +243,35 @@ def check_regex(entry: dict) -> tuple[str, str, str] | None:
 
     download_url = dl_template.format_map(subs)
     filename = fn_template.format_map(subs)
+
+    # Optional signed-URL gate: some mirrors (e.g. pearOS's iso.pearos.xyz)
+    # 403 / interstitial the plain URL and require POSTing to a "mint"
+    # endpoint that returns a short-lived signed download URL.
+    # body may reference {version} and any named regex groups; field picks
+    # the JSON key holding the signed URL.
+    mint = entry.get("mint")
+    if mint:
+        # Token replacement (not str.format): the body is typically JSON,
+        # whose literal braces must not be interpreted as format fields.
+        body_subs = dict(subs)
+        body_subs["filename"] = filename
+        body = mint.get("body", "")
+        for k, v in body_subs.items():
+            body = body.replace("{" + k + "}", str(v or ""))
+        resp = requests.post(
+            mint["url"],
+            data=body,
+            headers={"Content-Type": "application/json"},
+            timeout=REQUEST_TIMEOUT,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        field = mint.get("field", "url")
+        signed_url = data.get(field)
+        if not signed_url:
+            raise RuntimeError(f"mint endpoint returned no {field!r}: {data!r}")
+        download_url = signed_url
+
     return version, download_url, filename
 
 
@@ -604,6 +633,35 @@ def friendly_filename(entry: dict, version: str, original_filename: str) -> str:
 # Core sync loop
 # ---------------------------------------------------------------------------
 
+def verify_iso9660(path: Path) -> None:
+    """
+    Raise RuntimeError unless the file carries ISO 9660 magic (CD001 at 0x8001).
+
+    Guards against HTML error/consent pages saved as .iso by a 200-response
+    download gate (seen with pearOS's signed-URL interstitial).
+    """
+    try:
+        with open(path, "rb") as f:
+            f.seek(0x8001)
+            magic = f.read(5)
+    except OSError as exc:
+        raise RuntimeError(f"cannot read {path.name} for ISO magic check: {exc}")
+    if magic != b"CD001":
+        raise RuntimeError(
+            f"{path.name} is not an ISO 9660 image (magic at 0x8001: "
+            f"{magic!r}) — likely an HTML error page served instead"
+        )
+
+
+def verify_or_unlink(dest: Path) -> None:
+    """Verify a freshly downloaded .iso; delete it and re-raise on failure."""
+    try:
+        verify_iso9660(dest)
+    except RuntimeError:
+        dest.unlink(missing_ok=True)
+        raise
+
+
 def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
              dry_run: bool, state_path: Path | None = None) -> SyncResult:
     """Process a single ISO entry."""
@@ -680,6 +738,8 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
             # Verify file exists and has size > 0
             if not dest.exists() or dest.stat().st_size == 0:
                 raise RuntimeError("Download produced empty or missing file")
+            if filename.lower().endswith(".iso"):
+                verify_or_unlink(dest)
 
             # Rename to friendly name if enabled
             final_filename = friendly_filename(entry, version, filename)
@@ -742,6 +802,8 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
             download_iso(download_url, dest, ua)
             if not dest.exists() or dest.stat().st_size == 0:
                 raise RuntimeError("Download produced empty or missing file")
+            if filename.lower().endswith(".iso"):
+                verify_or_unlink(dest)
 
             final_filename = friendly_filename(entry, version, filename)
             if final_filename != filename:
@@ -784,6 +846,8 @@ def sync_one(key: str, entry: dict, state: dict, ventoy_path: Path,
 
             if not dest.exists() or dest.stat().st_size == 0:
                 raise RuntimeError("Download produced empty or missing file")
+            if filename.lower().endswith(".iso"):
+                verify_or_unlink(dest)
 
             # Rename to friendly name if enabled (no version for headers method)
             final_filename = friendly_filename(entry, "", filename)

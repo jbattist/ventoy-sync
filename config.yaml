@@ -219,6 +219,12 @@ isos:
     regex: pearOS-(?P<build>[\w]+(?:-Beta)?)-(?P<version>\d{4}\.\d+)-x86_64\.iso
     download_url_template: https://iso.pearos.xyz/iso/pearOS-{build}-{version}-x86_64.iso
     filename_template: pearOS-{build}-{version}-x86_64.iso
+    # iso.pearos.xyz 403s/interstitials the plain URL; the freepoint endpoint
+    # mints a free-tier signed URL (throttled ~2 MB/s, valid 4 hours) per run.
+    mint:
+      url: https://iso.pearos.xyz/freepoint
+      body: '{"file": "{filename}"}'
+      field: url
   pop_os:
     name: Pop!_OS (Generic)
     rename: true
